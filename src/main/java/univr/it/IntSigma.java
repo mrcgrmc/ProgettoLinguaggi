@@ -9,7 +9,8 @@ import univr.it.value.*;
 import java.util.*;
 
 public class IntSigma extends SigmaBaseVisitor<Value>{
-    private Conf global,scope;
+    private final Conf global;
+    private Conf scope;
     private final Scanner in = new Scanner(System.in);
     private final Map<String, FuncDef> functions = new HashMap<>();
 
@@ -82,7 +83,7 @@ public class IntSigma extends SigmaBaseVisitor<Value>{
             scope.put(pname, v);
         }
         visit(def.getBody());
-        ExpValue ret = this.global.get("ret");
+        ExpValue ret = (ExpValue) this.global.get("ret");
         this.global.delete("ret");
         this.scope = old;
         return ret;
@@ -104,22 +105,54 @@ public class IntSigma extends SigmaBaseVisitor<Value>{
     @Override
     public StmtValue visitReDecStmt(SigmaParser.ReDecStmtContext ctx) {
         String id = ctx.ID().getText();
-        if (scope.get(id) instanceof FloatValue)
+        boolean wasFloat = scope.get(id) instanceof FloatValue;
+
+        if (ctx.fExp() != null) {
             scope.put(id, (FloatValue) visit(ctx.fExp()));
-        else
-            scope.put(id, (StringValue) visit(ctx.sExp()));
+        } else if (ctx.sExp() != null) {
+            StringValue strVal = (StringValue) visit(ctx.sExp());
+            String raw = strVal.getValue();
+
+            if (wasFloat) {
+                try {
+                    if (raw.isBlank()) {
+                        throw new NumberFormatException("empty input");
+                    }
+                    float parsed = Float.parseFloat(raw);
+                    scope.put(id, new FloatValue(parsed));
+                } catch (NumberFormatException e) {
+                    System.err.println("Invalid float input for variable '" + id + "': " + raw);
+                    System.exit(1);
+                }
+            } else {
+                scope.put(id, strVal);
+            }
+        } else {
+            throw new RuntimeException("Missing expression for " + id);
+        }
+
         return StmtValue.INSTANCE;
     }
     @Override
-    public StmtValue visitReturnStmt(SigmaParser.ReturnStmtContext ctx) {
+    public StmtValue visitReturnSStmt(SigmaParser.ReturnSStmtContext ctx) {
         ParserRuleContext parent = ctx.getParent().getParent();
         if(parent instanceof SigmaParser.FuncDefContext){
-            if (ctx.fExp() != null) global.put("ret",(FloatValue)visit(ctx.fExp()));
-            if (ctx.sExp() != null) global.put("ret",(FloatValue)visit(ctx.fExp()));
+            global.put("ret",visit(ctx.sExp()));
         }
-        else if (parent instanceof  SigmaParser.MainContext){
-            if (ctx.fExp() != null) System.out.println(((FloatValue)visit(ctx.fExp())).getValue());
-            if (ctx.sExp() != null) System.out.println(((StringValue)visit(ctx.sExp())).getValue());
+        else if (parent instanceof SigmaParser.MainContext){
+            System.out.println(((StringValue)visit(ctx.sExp())).getValue());
+            System.exit(0);
+        }
+        return StmtValue.INSTANCE;
+    }
+    @Override
+    public StmtValue visitReturnFStmt(SigmaParser.ReturnFStmtContext ctx) {
+        ParserRuleContext parent = ctx.getParent().getParent();
+        if(parent instanceof SigmaParser.FuncDefContext){
+            global.put("ret",visit(ctx.fExp()));
+        }
+        else if (parent instanceof SigmaParser.MainContext){
+            System.out.println(((FloatValue)visit(ctx.fExp())).getValue());
             System.exit(0);
         }
         return StmtValue.INSTANCE;
@@ -247,12 +280,14 @@ public class IntSigma extends SigmaBaseVisitor<Value>{
     public BoolValue visitFCompare(SigmaParser.FCompareContext ctx) {
         float left = ((FloatValue)visit(ctx.fExp(0))).getValue();
         float right = ((FloatValue)visit(ctx.fExp(1))).getValue();
-        if (ctx.EQ() != null) return new BoolValue(left==right);
-        else if (ctx.LT() != null) return new BoolValue(left<right);
-        else if (ctx.GT() != null) return new BoolValue(left>right);
-        else if (ctx.LE() != null) return new BoolValue(left<=right);
-        else if (ctx.GE() != null) return new BoolValue(left>=right);
-        return null;
+        return switch (ctx.op.getType()) {
+            case SigmaParser.EQ -> new BoolValue(left == right);
+            case SigmaParser.LT -> new BoolValue(left < right);
+            case SigmaParser.GT -> new BoolValue(left > right);
+            case SigmaParser.LE -> new BoolValue(left <= right);
+            case SigmaParser.GE -> new BoolValue(left >= right);
+            default -> null;
+        };
     }
     @Override
     public BoolValue visitSCompare(SigmaParser.SCompareContext ctx) {
@@ -317,18 +352,22 @@ public class IntSigma extends SigmaBaseVisitor<Value>{
     public Value visitPlusMinus(SigmaParser.PlusMinusContext ctx) {
         float left = ((FloatValue)visit(ctx.fExp(0))).getValue();
         float right = ((FloatValue)visit(ctx.fExp(1))).getValue();
-        if (ctx.PLUS() != null) return new FloatValue(left+right);
-        else if (ctx.MINUS() != null) return new FloatValue(left-right);
-        return null;
+        return switch (ctx.op.getType()) {
+            case SigmaParser.PLUS -> new FloatValue(left + right);
+            case SigmaParser.MINUS -> new FloatValue(left - right);
+            default -> null;
+        };
     }
     @Override
     public FloatValue visitMulDivMod(SigmaParser.MulDivModContext ctx) {
         float left = ((FloatValue)visit(ctx.fExp(0))).getValue();
         float right = ((FloatValue)visit(ctx.fExp(1))).getValue();
-        if (ctx.MUL() != null) return new FloatValue(left*right);
-        else if (ctx.DIV() != null) return new FloatValue(left/right);
-        else if (ctx.MOD() != null) return new FloatValue(left%right);
-        return null;
+        return switch (ctx.op.getType()) {
+            case SigmaParser.MUL -> new FloatValue(left * right);
+            case SigmaParser.DIV -> new FloatValue(left / right);
+            case SigmaParser.MOD -> new FloatValue(left % right);
+            default -> null;
+        };
     }
     @Override
     public FloatValue visitPower(SigmaParser.PowerContext ctx) {
@@ -355,9 +394,10 @@ public class IntSigma extends SigmaBaseVisitor<Value>{
     public FloatValue visitFInput(SigmaParser.FInputContext ctx) {
         try {
             Float val = in.nextFloat();
+            in.nextLine();
             return new FloatValue(val);
-        }catch (Exception e){
-            System.err.println("Type missmatch exception!");
+        } catch (Exception e) {
+            System.err.println("Type mismatch exception!");
             System.exit(1);
         }
         return null;

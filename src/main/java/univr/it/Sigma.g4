@@ -18,7 +18,8 @@ statement: IF LPAR bExp RPAR block
          | declaration SEMIC                    #decStmt
          | ID (LSPAR NAT RSPAR)?
            IS (sExp | fExp) SEMIC               #reDecStmt
-         | RETURN IS (sExp | fExp) SEMIC        #returnStmt
+         | RETURN TYPES IS sExp SEMIC           #returnSStmt
+         | RETURN TYPEF IS fExp SEMIC           #returnFStmt
          | block ND block                       #ndStmt
          | SLY LCBRAC bfComm RCBRAC ARNOLD      #bfStmt
          ;
