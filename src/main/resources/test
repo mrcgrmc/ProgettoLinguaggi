@@ -1,7 +1,6 @@
 @ FUNC greet( STRING who ) {
     ret STRING : "Hello, " + who + "!";
 }
-
 @ MAIN {
 
     // dichiarazioni base

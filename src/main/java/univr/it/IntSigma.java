@@ -9,13 +9,12 @@ import univr.it.value.*;
 import java.util.*;
 
 public class IntSigma extends SigmaBaseVisitor<Value>{
-    private final Conf global;
+    private ExpValue lastRet = null;
     private Conf scope;
     private final Scanner in = new Scanner(System.in);
     private final Map<String, FuncDef> functions = new HashMap<>();
 
     public IntSigma(Conf conf){
-        this.global = conf;
         this.scope = conf;
     }
 
@@ -84,8 +83,8 @@ public class IntSigma extends SigmaBaseVisitor<Value>{
             scope.put(pname, v);
         }
         visit(def.getBody());
-        ExpValue ret = (ExpValue) this.global.get("ret");
-        this.global.delete("ret");
+        ExpValue ret = this.lastRet;
+        this.lastRet = null;
         this.scope = old;
         return ret;
     }
@@ -156,7 +155,7 @@ public class IntSigma extends SigmaBaseVisitor<Value>{
     public StmtValue visitReturnSStmt(SigmaParser.ReturnSStmtContext ctx) {
         ParserRuleContext parent = ctx.getParent().getParent();
         if(parent instanceof SigmaParser.FuncDefContext){
-            global.put("ret",visit(ctx.sExp()));
+            this.lastRet = (StringValue)visit(ctx.sExp());
         }
         else if (parent instanceof SigmaParser.MainContext){
             System.out.println(((StringValue)visit(ctx.sExp())).getValue());
@@ -169,7 +168,7 @@ public class IntSigma extends SigmaBaseVisitor<Value>{
     public StmtValue visitReturnFStmt(SigmaParser.ReturnFStmtContext ctx) {
         ParserRuleContext parent = ctx.getParent().getParent();
         if(parent instanceof SigmaParser.FuncDefContext){
-            global.put("ret",visit(ctx.fExp()));
+            this.lastRet = (FloatValue) visit(ctx.fExp());
         }
         else if (parent instanceof SigmaParser.MainContext){
             System.out.println(((FloatValue)visit(ctx.fExp())).getValue());
