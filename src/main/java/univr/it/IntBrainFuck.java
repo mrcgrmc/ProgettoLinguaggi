@@ -10,7 +10,7 @@ import java.io.UncheckedIOException;
 import java.util.Arrays;
 
 public final class IntBrainFuck extends SigmaBaseVisitor<Void> {
-    private byte[] tape = new byte[30_000];
+    private byte[] tape = new byte[30000];
     private int    ptr  = 0;
 
     private final InputStream in;

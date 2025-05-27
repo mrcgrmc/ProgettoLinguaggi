@@ -64,7 +64,7 @@ fExp: fAtoms                                    #fAtom
     | fExp op=(PLUS | MINUS) fExp               #plusMinus
     ;
 
-fAtoms: ID (LSPAR fExp RSPAR)?                   #fVar
+fAtoms: ID (LSPAR fExp RSPAR)?                  #fVar
       | type=(FLOAT | NAT | NEG)                #numbers
       | INPUT LPAR RPAR                         #fInput
       | funCall                                 #fReturn

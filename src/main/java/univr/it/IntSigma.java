@@ -106,35 +106,52 @@ public class IntSigma extends SigmaBaseVisitor<Value>{
     }
     @Override
     public StmtValue visitReDecStmt(SigmaParser.ReDecStmtContext ctx) {
-        String id = ctx.ID().getText();
-        boolean wasFloat = scope.get(id) instanceof FloatValue;
 
-        if (ctx.fExp() != null) {
-            scope.put(id, visit(ctx.fExp(1)));
-        } else if (ctx.sExp() != null) {
-            StringValue strVal = (StringValue) visit(ctx.sExp());
-            String raw = strVal.getValue();
+        String id   = ctx.ID().getText();
+        Value  old  = scope.get(id);
+        if (old == null)
+            throw new RuntimeException("Variable '" + id + "' used but never declared");
 
-            if (wasFloat) {
-                try {
-                    if (raw.isBlank()) {
-                        throw new NumberFormatException("Error: empty input");
-                    }
-                    float parsed = Float.parseFloat(raw);
-                    scope.put(id, new FloatValue(parsed));
-                } catch (NumberFormatException e) {
-                    System.err.println("Error: Invalid float input for variable '" + id + "': " + raw);
-                    System.exit(1);
-                }
+        boolean hasIndex = ctx.LSPAR() != null;
+
+        if (hasIndex) {
+            if (!(old instanceof ArrayValue arr))
+                throw new RuntimeException("Error: Variable '" + id + "' is not an array");
+
+            int idx = ((FloatValue) visit(ctx.fExp(0))).toInt().getValue();
+
+            Value newVal;
+            if (ctx.sExp() != null) {
+                newVal = visit(ctx.sExp());
             } else {
-                scope.put(id, strVal);
+                newVal = visit(ctx.fExp(1));
             }
-        } else {
-            throw new RuntimeException("Error: Missing expression for " + id);
+            arr.set(idx, (ExpValue) newVal);
+            return StmtValue.INSTANCE;
         }
 
+        if (ctx.sExp() != null) {
+            StringValue sv = (StringValue) visit(ctx.sExp());
+            if (old instanceof FloatValue) {
+                try {
+                    float num = Float.parseFloat(sv.getValue());
+                    scope.put(id, new FloatValue(num));
+                } catch (NumberFormatException ex) {
+                    throw new RuntimeException(
+                            "Error: Cannot convert \"" + sv.getValue() +
+                                    "\" to FLOAT for variable '" + id + "'");
+                }
+            } else {
+                scope.put(id, sv);
+            }
+            return StmtValue.INSTANCE;
+        }
+
+        FloatValue fv = (FloatValue) visit(ctx.fExp(0));
+        scope.put(id, fv);
         return StmtValue.INSTANCE;
     }
+
     @Override
     public StmtValue visitReturnSStmt(SigmaParser.ReturnSStmtContext ctx) {
         ParserRuleContext parent = ctx.getParent().getParent();
@@ -252,7 +269,7 @@ public class IntSigma extends SigmaBaseVisitor<Value>{
     @Override
     public ArrayValue visitArrayVar(SigmaParser.ArrayVarContext ctx) {
         if(scope.get(ctx.ID().getText()) == null){
-            System.err.println("Variable " + ctx.ID().getText() +  "used but never assigned");
+            System.err.println("Error: Variable " + ctx.ID().getText() +  "used never assigned");
             System.exit(1);
         }
         return (ArrayValue) scope.get(ctx.ID().getText());
