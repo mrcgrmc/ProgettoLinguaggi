@@ -1,5 +1,6 @@
 package univr.it;
 
+import org.antlr.v4.runtime.ParserRuleContext;
 import org.antlr.v4.runtime.tree.ParseTree;
 import univr.it.sigma.SigmaBaseVisitor;
 import univr.it.sigma.SigmaParser;
@@ -8,12 +9,12 @@ import univr.it.value.*;
 import java.util.*;
 
 public class IntSigma extends SigmaBaseVisitor<Value>{
-    private Conf conf;
+    private Conf global,scope;
     private final Scanner in = new Scanner(System.in);
     private final Map<String, FuncDef> functions = new HashMap<>();
 
     public IntSigma(Conf conf){
-        this.conf = conf;
+        this.global = conf;
     }
 
     //MAIN
@@ -30,14 +31,13 @@ public class IntSigma extends SigmaBaseVisitor<Value>{
     //BLOCKS
     @Override
     public StmtValue visitBlock(SigmaParser.BlockContext ctx) {
-        Conf old = this.conf;
-        this.conf = new Conf(old);
+        Conf old;
+        old = this.scope;
+        this.scope = new Conf(old);
         for(SigmaParser.StatementContext stmt : ctx.statement()){
             visit(stmt);
         }
-        if(this.conf.get("ret") != null)
-            old.put("ret",this.conf.get("ret"));
-        this.conf = old;
+        this.scope = old;
         return StmtValue.INSTANCE;
     }
 
@@ -57,7 +57,8 @@ public class IntSigma extends SigmaBaseVisitor<Value>{
     @Override
     public ExpValue visitFunCall(SigmaParser.FunCallContext ctx) {
         FuncDef def = functions.get(ctx.ID().getText());
-
+        Conf old = this.scope;
+        this.scope = new Conf();
         if (def == null) {
             System.err.println("Error: not defined function!");
             System.exit(1);
@@ -78,11 +79,12 @@ public class IntSigma extends SigmaBaseVisitor<Value>{
         for (int i = 0; i < def.getParamNames().size(); i++) {
             String pname = def.getParamNames().get(i);
             ExpValue v = (ExpValue) argValues.get(i);
-            conf.put(pname, v);
+            scope.put(pname, v);
         }
         visit(def.getBody());
-        ExpValue ret = this.conf.get("ret");
-        this.conf.delete("ret");
+        ExpValue ret = this.global.get("ret");
+        this.global.delete("ret");
+        this.scope = old;
         return ret;
     }
 
@@ -101,11 +103,25 @@ public class IntSigma extends SigmaBaseVisitor<Value>{
     }
     @Override
     public StmtValue visitReDecStmt(SigmaParser.ReDecStmtContext ctx) {
-        String id = (ctx.ID()!=null ? ctx.ID().getText() : ctx.RETURN().getText());
-        if (conf.get(id) instanceof FloatValue)
-            conf.put(id, (FloatValue) visit(ctx.fExp()));
+        String id = ctx.ID().getText();
+        if (scope.get(id) instanceof FloatValue)
+            scope.put(id, (FloatValue) visit(ctx.fExp()));
         else
-            conf.put(id, (StringValue) visit(ctx.sExp()));
+            scope.put(id, (StringValue) visit(ctx.sExp()));
+        return StmtValue.INSTANCE;
+    }
+    @Override
+    public StmtValue visitReturnStmt(SigmaParser.ReturnStmtContext ctx) {
+        ParserRuleContext parent = ctx.getParent().getParent();
+        if(parent instanceof SigmaParser.FuncDefContext){
+            if (ctx.fExp() != null) global.put("ret",(FloatValue)visit(ctx.fExp()));
+            if (ctx.sExp() != null) global.put("ret",(FloatValue)visit(ctx.fExp()));
+        }
+        else if (parent instanceof  SigmaParser.MainContext){
+            if (ctx.fExp() != null) System.out.println(((FloatValue)visit(ctx.fExp())).getValue());
+            if (ctx.sExp() != null) System.out.println(((StringValue)visit(ctx.sExp())).getValue());
+            System.exit(0);
+        }
         return StmtValue.INSTANCE;
     }
     @Override
@@ -133,9 +149,9 @@ public class IntSigma extends SigmaBaseVisitor<Value>{
             end = ((IntValue) visit(ctx.fExp(0))).getValue();
         }
         for(int i=start;i<end;i++){
-            conf.put(ctx.ID().getText(),new IntValue(i));
+            scope.put(ctx.ID().getText(),new IntValue(i));
             visit(ctx.block());
-            i = ((IntValue)conf.get(ctx.ID().getText())).getValue();
+            i = ((IntValue)scope.get(ctx.ID().getText())).getValue();
         }
         return StmtValue.INSTANCE;
     }
@@ -160,17 +176,17 @@ public class IntSigma extends SigmaBaseVisitor<Value>{
     //DECLARATIONS
     @Override
     public StmtValue visitDecArray(SigmaParser.DecArrayContext ctx) {
-        conf.put(ctx.ID().getText(),(ArrayValue)visit(ctx.array()));
+        scope.put(ctx.ID().getText(),(ArrayValue)visit(ctx.array()));
         return StmtValue.INSTANCE;
     }
     @Override
     public StmtValue visitDecFloat(SigmaParser.DecFloatContext ctx) {
-        conf.put(ctx.ID().getText(),(FloatValue)visit(ctx.fExp()));
+        scope.put(ctx.ID().getText(),(FloatValue)visit(ctx.fExp()));
         return StmtValue.INSTANCE;
     }
     @Override
     public StmtValue visitDecString(SigmaParser.DecStringContext ctx) {
-        conf.put(ctx.ID().getText(),(StringValue)visit(ctx.sExp()));
+        scope.put(ctx.ID().getText(),(StringValue)visit(ctx.sExp()));
         return StmtValue.INSTANCE;
     }
 
@@ -198,11 +214,11 @@ public class IntSigma extends SigmaBaseVisitor<Value>{
     }
     @Override
     public ArrayValue visitArrayVar(SigmaParser.ArrayVarContext ctx) {
-        if(conf.get(ctx.ID().getText()) == null){
+        if(scope.get(ctx.ID().getText()) == null){
             System.err.println("Variable " + ctx.ID().getText() +  "used but never assigned");
             System.exit(1);
         }
-        return (ArrayValue) conf.get(ctx.ID().getText());
+        return (ArrayValue) scope.get(ctx.ID().getText());
     }
 
 
@@ -285,14 +301,14 @@ public class IntSigma extends SigmaBaseVisitor<Value>{
         return new StringValue(raw.substring(1,raw.length()-1));
     }
     public StringValue visitSVar(SigmaParser.SVarContext ctx) {
-        if(conf.get(ctx.ID().getText()) == null){
+        if(scope.get(ctx.ID().getText()) == null){
             System.err.println("Variable " + ctx.ID().getText() +  "used but never assigned");
             System.exit(1);
         }
         if (ctx.LSPAR() != null)
-            return (StringValue) ((ArrayValue)conf.get(ctx.ID().getText())).get(Integer.parseInt(ctx.NAT().getText()));
+            return (StringValue) ((ArrayValue)scope.get(ctx.ID().getText())).get(Integer.parseInt(ctx.NAT().getText()));
 
-        return (StringValue) conf.get(ctx.ID().getText());
+        return (StringValue) scope.get(ctx.ID().getText());
     }
 
 
@@ -357,7 +373,7 @@ public class IntSigma extends SigmaBaseVisitor<Value>{
     @Override
     public FloatValue visitFVar(SigmaParser.FVarContext ctx) {
         String name = ctx.ID().getText();
-        Value raw = conf.get(name);
+        Value raw = scope.get(name);
 
         if (raw == null) {
             throw new RuntimeException("Undefined variable: " + name);

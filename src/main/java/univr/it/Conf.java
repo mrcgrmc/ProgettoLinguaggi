@@ -12,7 +12,8 @@ public class Conf {
         map = new HashMap<>();
     }
     public Conf(Conf c){
-        this.map = c.map;
+        if (c == null) this.map = new HashMap<>();
+        else this.map = c.map;
     }
 
     public ExpValue<?> get(String id){

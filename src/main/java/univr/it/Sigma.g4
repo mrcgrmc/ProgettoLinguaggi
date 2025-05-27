@@ -5,7 +5,7 @@ main: funcDef* DEF MAIN block EOF;
 
 block: LCBRAC statement* RCBRAC;
 
-funcDef: DEF FUNC ID LPAR ((TYPEA|TYPES|TYPEF) ID (TILDE (TYPEA|TYPES|TYPEF) ID)*)? RPAR block;
+funcDef: DEF FUNC ID LPAR (type=(TYPEA|TYPES|TYPEF) ID (TILDE type=(TYPEA|TYPES|TYPEF) ID)*)? RPAR block;
 funCall: ID LPAR ((fExp | sExp| array) (TILDE (fExp | sExp| array))*)? RPAR;
 
 statement: IF LPAR bExp RPAR block
@@ -16,15 +16,16 @@ statement: IF LPAR bExp RPAR block
          | funCall SEMIC                        #funStmt
          | PRINT LPAR sExp? RPAR SEMIC          #printStmt
          | declaration SEMIC                    #decStmt
-         | (ID|RETURN) (LSPAR NAT RSPAR)?
+         | ID (LSPAR NAT RSPAR)?
            IS (sExp | fExp) SEMIC               #reDecStmt
+         | RETURN IS (sExp | fExp) SEMIC        #returnStmt
          | block ND block                       #ndStmt
          | SLY LCBRAC bfComm RCBRAC ARNOLD      #bfStmt
          ;
 
 declaration: DEF TYPES ID IS sExp               #decString
            | DEF TYPEF ID IS fExp               #decFloat
-           | DEF TYPEA TILDE (TYPES | TYPEF)
+           | DEF TYPEA TILDE type=(TYPES | TYPEF)
              ID IS array                        #decArray
            ;
 
@@ -35,7 +36,7 @@ array: ID                                       #arrayVar
 
 //b(oolean)
 bExp: sExp EQ sExp                              #sCompare
-    | fExp (EQ | LT | GT | LE | GE) fExp        #fCompare
+    | fExp op=(EQ | LT | GT | LE | GE) fExp     #fCompare
     | LPAR bExp RPAR                            #bPar
     | NOT bExp                                  #not
     | bExp AND bExp                             #and
@@ -58,12 +59,12 @@ sAtoms: ID (LSPAR NAT RSPAR)?                   #sVar
 fExp: fAtoms                                    #fAtom
     | LPAR fExp RPAR                            #fPar
     | <assoc=right> fExp POW fExp               #power
-    | fExp (MUL | DIV | MOD) fExp               #mulDivMod
-    | fExp (PLUS | MINUS) fExp                  #plusMinus
+    | fExp op=(MUL | DIV | MOD) fExp            #mulDivMod
+    | fExp op=(PLUS | MINUS) fExp               #plusMinus
     ;
 
 fAtoms: ID (LSPAR NAT RSPAR)?                   #fVar
-      | (FLOAT | NAT | NEG)                     #numbers
+      | type=(FLOAT | NAT | NEG)                #numbers
       | INPUT LPAR RPAR                         #fInput
       | funCall                                 #fReturn
       ;

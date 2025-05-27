@@ -132,6 +132,18 @@ public interface SigmaListener extends ParseTreeListener {
 	 */
 	void exitReDecStmt(SigmaParser.ReDecStmtContext ctx);
 	/**
+	 * Enter a parse tree produced by the {@code returnStmt}
+	 * labeled alternative in {@link SigmaParser#statement}.
+	 * @param ctx the parse tree
+	 */
+	void enterReturnStmt(SigmaParser.ReturnStmtContext ctx);
+	/**
+	 * Exit a parse tree produced by the {@code returnStmt}
+	 * labeled alternative in {@link SigmaParser#statement}.
+	 * @param ctx the parse tree
+	 */
+	void exitReturnStmt(SigmaParser.ReturnStmtContext ctx);
+	/**
 	 * Enter a parse tree produced by the {@code ndStmt}
 	 * labeled alternative in {@link SigmaParser#statement}.
 	 * @param ctx the parse tree

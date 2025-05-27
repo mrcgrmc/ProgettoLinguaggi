@@ -1,11 +1,9 @@
 @FUNC books(){
     print("How many books do you read in a year?");
     @FLOAT books : input();
-    print("ciao");
     while(books < (42 + 42 - 42 + input())){
         books : input();
     }
-    print("ciao");
     ret : books;
 }
 
