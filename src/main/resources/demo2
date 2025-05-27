@@ -1,0 +1,7 @@
+@MAIN{
+{print("Buy more, more books!");}
+ND
+{{@FLOAT books : input(); print("Buy "+{books^4}+" books "+"!! ;)");}
+ND
+{print("Buy 42 books!");}}
+}
