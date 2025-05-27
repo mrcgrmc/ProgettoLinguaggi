@@ -16,7 +16,7 @@ statement: IF LPAR bExp RPAR block
          | funCall SEMIC                        #funStmt
          | PRINT LPAR sExp? RPAR SEMIC          #printStmt
          | declaration SEMIC                    #decStmt
-         | ID (LSPAR NAT RSPAR)?
+         | ID (LSPAR fExp RSPAR)?
            IS (sExp | fExp) SEMIC               #reDecStmt
          | RETURN TYPES IS sExp SEMIC           #returnSStmt
          | RETURN TYPEF IS fExp SEMIC           #returnFStmt
@@ -50,7 +50,7 @@ sExp: sAtoms                                    #sAtom
     | LCBRAC fExp RCBRAC                        #floatToString
     ;
 
-sAtoms: ID (LSPAR NAT RSPAR)?                   #sVar
+sAtoms: ID (LSPAR fExp RSPAR)?                   #sVar
       | STRING                                  #string
       | INPUT LPAR RPAR                         #sInput
       | funCall                                 #sReturn
@@ -64,7 +64,7 @@ fExp: fAtoms                                    #fAtom
     | fExp op=(PLUS | MINUS) fExp               #plusMinus
     ;
 
-fAtoms: ID (LSPAR NAT RSPAR)?                   #fVar
+fAtoms: ID (LSPAR fExp RSPAR)?                   #fVar
       | type=(FLOAT | NAT | NEG)                #numbers
       | INPUT LPAR RPAR                         #fInput
       | funCall                                 #fReturn

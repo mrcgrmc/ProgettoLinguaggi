@@ -16,6 +16,7 @@ public class IntSigma extends SigmaBaseVisitor<Value>{
 
     public IntSigma(Conf conf){
         this.global = conf;
+        this.scope = conf;
     }
 
     //MAIN
@@ -91,8 +92,9 @@ public class IntSigma extends SigmaBaseVisitor<Value>{
 
 
     //STATEMENTS
-    @Override //TODO
+    @Override
     public StmtValue visitBfStmt(SigmaParser.BfStmtContext ctx) {
+        IntBrainFuck.run(ctx.bfComm());
         return StmtValue.INSTANCE;
     }
     @Override
@@ -108,7 +110,7 @@ public class IntSigma extends SigmaBaseVisitor<Value>{
         boolean wasFloat = scope.get(id) instanceof FloatValue;
 
         if (ctx.fExp() != null) {
-            scope.put(id, (FloatValue) visit(ctx.fExp()));
+            scope.put(id, visit(ctx.fExp(1)));
         } else if (ctx.sExp() != null) {
             StringValue strVal = (StringValue) visit(ctx.sExp());
             String raw = strVal.getValue();
@@ -116,19 +118,19 @@ public class IntSigma extends SigmaBaseVisitor<Value>{
             if (wasFloat) {
                 try {
                     if (raw.isBlank()) {
-                        throw new NumberFormatException("empty input");
+                        throw new NumberFormatException("Error: empty input");
                     }
                     float parsed = Float.parseFloat(raw);
                     scope.put(id, new FloatValue(parsed));
                 } catch (NumberFormatException e) {
-                    System.err.println("Invalid float input for variable '" + id + "': " + raw);
+                    System.err.println("Error: Invalid float input for variable '" + id + "': " + raw);
                     System.exit(1);
                 }
             } else {
                 scope.put(id, strVal);
             }
         } else {
-            throw new RuntimeException("Missing expression for " + id);
+            throw new RuntimeException("Error: Missing expression for " + id);
         }
 
         return StmtValue.INSTANCE;
@@ -143,6 +145,7 @@ public class IntSigma extends SigmaBaseVisitor<Value>{
             System.out.println(((StringValue)visit(ctx.sExp())).getValue());
             System.exit(0);
         }
+        else throw new IllegalStateException("Error: Illegal return statement!");
         return StmtValue.INSTANCE;
     }
     @Override
@@ -167,24 +170,25 @@ public class IntSigma extends SigmaBaseVisitor<Value>{
         System.out.println(((StringValue)visit(ctx.sExp())).getValue());
         return StmtValue.INSTANCE;
     }
-    @Override //TODO
+    @Override
     public StmtValue visitFunStmt(SigmaParser.FunStmtContext ctx) {
+        visit(ctx.funCall());
         return StmtValue.INSTANCE;
     }
     @Override
     public StmtValue visitForStmt(SigmaParser.ForStmtContext ctx) {
         int start,end;
         if (ctx.fExp().size() > 1){
-            start = ((IntValue) visit(ctx.fExp(0))).getValue();
-            end = ((IntValue) visit(ctx.fExp(1))).getValue();
+            start = ((FloatValue) visit(ctx.fExp(0))).toInt().getValue();
+            end = ((FloatValue) visit(ctx.fExp(1))).toInt().getValue();
         }else{
             start = 0;
-            end = ((IntValue) visit(ctx.fExp(0))).getValue();
+            end = ((FloatValue) visit(ctx.fExp(0))).toInt().getValue();
         }
         for(int i=start;i<end;i++){
-            scope.put(ctx.ID().getText(),new IntValue(i));
+            scope.put(ctx.ID().getText(),new FloatValue((float)i));
             visit(ctx.block());
-            i = ((IntValue)scope.get(ctx.ID().getText())).getValue();
+            i = ((FloatValue)scope.get(ctx.ID().getText())).toInt().getValue();
         }
         return StmtValue.INSTANCE;
     }
@@ -209,17 +213,17 @@ public class IntSigma extends SigmaBaseVisitor<Value>{
     //DECLARATIONS
     @Override
     public StmtValue visitDecArray(SigmaParser.DecArrayContext ctx) {
-        scope.put(ctx.ID().getText(),(ArrayValue)visit(ctx.array()));
+        scope.put(ctx.ID().getText(), visit(ctx.array()));
         return StmtValue.INSTANCE;
     }
     @Override
     public StmtValue visitDecFloat(SigmaParser.DecFloatContext ctx) {
-        scope.put(ctx.ID().getText(),(FloatValue)visit(ctx.fExp()));
+        scope.put(ctx.ID().getText(), visit(ctx.fExp()));
         return StmtValue.INSTANCE;
     }
     @Override
     public StmtValue visitDecString(SigmaParser.DecStringContext ctx) {
-        scope.put(ctx.ID().getText(),(StringValue)visit(ctx.sExp()));
+        scope.put(ctx.ID().getText(), visit(ctx.sExp()));
         return StmtValue.INSTANCE;
     }
 
@@ -341,7 +345,7 @@ public class IntSigma extends SigmaBaseVisitor<Value>{
             System.exit(1);
         }
         if (ctx.LSPAR() != null)
-            return (StringValue) ((ArrayValue)scope.get(ctx.ID().getText())).get(Integer.parseInt(ctx.NAT().getText()));
+            return (StringValue) ((ArrayValue)scope.get(ctx.ID().getText())).get(((FloatValue)visit(ctx.fExp())).toInt().getValue());
 
         return (StringValue) scope.get(ctx.ID().getText());
     }
@@ -416,10 +420,10 @@ public class IntSigma extends SigmaBaseVisitor<Value>{
         Value raw = scope.get(name);
 
         if (raw == null) {
-            throw new RuntimeException("Undefined variable: " + name);
+            throw new RuntimeException("Error: Undefined variable " + name);
         }
-        if (ctx.NAT() != null) {
-            int idx = Integer.parseInt(ctx.NAT().getText());
+        if (ctx.fExp() != null) {
+            int idx = ((FloatValue)visit(ctx.fExp())).toInt().getValue();
             if (!(raw instanceof ArrayValue)) {
                 throw new RuntimeException("Variable " + name + " is not an array");
             }
@@ -433,8 +437,7 @@ public class IntSigma extends SigmaBaseVisitor<Value>{
             return new FloatValue(v);
         }
         throw new RuntimeException(
-                "Type error: variable " + name + " is not numeric, but " + raw.getClass().getSimpleName()
-        );
+                "Error: Variable " + name + " is not numeric, but " + raw.getClass().getSimpleName());
     }
 }
 

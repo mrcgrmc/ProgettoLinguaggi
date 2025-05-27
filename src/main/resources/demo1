@@ -7,11 +7,11 @@
     ret FLOAT : books;
 }
 
-//@FUNC brainfuck(){
-//    sly{
-//    <..<>.[..><++]      //da cambiare
-//    }arnold
-//}
+@FUNC brainfuck(){
+    sly{
+    <..<>.[..><++]
+    }arnold
+}
 
 @MAIN{
     print("Library --> 1, Bookshop --> 2.");
@@ -20,5 +20,5 @@
     print("Choice: "+{books}+", Books: "+{bOOks});
 
     print("BrainFuck: ");
-//  brainfuck();
+    brainfuck();
 }
