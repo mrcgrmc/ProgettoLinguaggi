@@ -84,6 +84,20 @@ public interface SigmaVisitor<T> extends ParseTreeVisitor<T> {
 	 */
 	T visitReDecStmt(SigmaParser.ReDecStmtContext ctx);
 	/**
+	 * Visit a parse tree produced by the {@code returnSStmt}
+	 * labeled alternative in {@link SigmaParser#statement}.
+	 * @param ctx the parse tree
+	 * @return the visitor result
+	 */
+	T visitReturnSStmt(SigmaParser.ReturnSStmtContext ctx);
+	/**
+	 * Visit a parse tree produced by the {@code returnFStmt}
+	 * labeled alternative in {@link SigmaParser#statement}.
+	 * @param ctx the parse tree
+	 * @return the visitor result
+	 */
+	T visitReturnFStmt(SigmaParser.ReturnFStmtContext ctx);
+	/**
 	 * Visit a parse tree produced by the {@code ndStmt}
 	 * labeled alternative in {@link SigmaParser#statement}.
 	 * @param ctx the parse tree
