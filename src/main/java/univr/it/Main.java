@@ -7,7 +7,6 @@ import org.antlr.v4.runtime.tree.ParseTree;
 import univr.it.sigma.SigmaLexer;
 import univr.it.sigma.SigmaParser;
 
-import java.io.File;
 import java.io.IOException;
 import java.io.InputStream;
 

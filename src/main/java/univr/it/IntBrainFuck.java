@@ -9,9 +9,9 @@ import java.io.PrintStream;
 import java.io.UncheckedIOException;
 import java.util.Arrays;
 
-public final class IntBrainFuck extends SigmaBaseVisitor<Void> {
-    private byte[] tape = new byte[30000];
-    private int    ptr  = 0;
+public class IntBrainFuck extends SigmaBaseVisitor<Void> {
+    private byte[] tape = new byte[30000];                          //Nastro di memoria
+    private int    ptr  = 0;                                        //Puntatore di cella
 
     private final InputStream in;
     private final PrintStream out;
@@ -28,17 +28,17 @@ public final class IntBrainFuck extends SigmaBaseVisitor<Void> {
         new IntBrainFuck().visit(tree);
     }
 
-    @Override public Void visitLt   (SigmaParser.LtContext    ctx){ decPtr(); visit(ctx.bfComm()); return null; }
-    @Override public Void visitGt   (SigmaParser.GtContext    ctx){ incPtr(); visit(ctx.bfComm()); return null; }
-    @Override public Void visitPlus (SigmaParser.PlusContext  ctx){ tape[ptr]++;  visit(ctx.bfComm()); return null; }
-    @Override public Void visitMinus(SigmaParser.MinusContext ctx){ tape[ptr]--;  visit(ctx.bfComm()); return null; }
+    @Override public Void visitLt   (SigmaParser.LtContext    ctx){ decPtr(); visit(ctx.bfComm()); return null; }   //ptr a destra
+    @Override public Void visitGt   (SigmaParser.GtContext    ctx){ incPtr(); visit(ctx.bfComm()); return null; }   //ptr a sinistra
+    @Override public Void visitPlus (SigmaParser.PlusContext  ctx){ tape[ptr]++;  visit(ctx.bfComm()); return null; }   //Incrementra il byte  nella cella corrente
+    @Override public Void visitMinus(SigmaParser.MinusContext ctx){ tape[ptr]--;  visit(ctx.bfComm()); return null; }   //Decrementa il byte nella cella corrente
 
-    @Override public Void visitDot  (SigmaParser.DotContext   ctx){
+    @Override public Void visitDot  (SigmaParser.DotContext   ctx){ //Scrive caratteri in output
         out.print((char)(tape[ptr] & 0xFF));
         visit(ctx.bfComm()); return null;
     }
 
-    @Override public Void visitComma(SigmaParser.CommaContext ctx){
+    @Override public Void visitComma(SigmaParser.CommaContext ctx){ //Legge i caratteri in ingresso
         try {
             int r = in.read();
             tape[ptr] = (byte) (r == -1 ? 0 : r);
@@ -47,16 +47,16 @@ public final class IntBrainFuck extends SigmaBaseVisitor<Void> {
     }
 
     @Override public Void visitLoop (SigmaParser.LoopContext  ctx){
-        while ((tape[ptr] & 0xFF) != 0) {
+        while ((tape[ptr] & 0xFF) != 0) {           //while-loop finche' il byte e' diverso da 0
             visit(ctx.bfComm(0));
         }
         visit(ctx.bfComm(1));
         return null;
     }
 
-    @Override public Void visitNil  (SigmaParser.NilContext   ctx){ return null; }
+    @Override public Void visitNil  (SigmaParser.NilContext   ctx){ return null; }  //Terminazione ricorsione
 
-    private void incPtr(){
+    private void incPtr(){                  //Raddoppia lunghezza del nastro
         ++ptr;
         if (ptr == tape.length) tape = Arrays.copyOf(tape, tape.length * 2);
     }

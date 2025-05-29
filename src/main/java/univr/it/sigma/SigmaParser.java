@@ -286,10 +286,6 @@ public class SigmaParser extends Parser {
 		}
 		@Override public int getRuleIndex() { return RULE_funcDef; }
 		@Override
-		public void enterRule(ParseTreeListener listener) {
-			if ( listener instanceof SigmaListener ) ((SigmaListener)listener).enterFuncDef(this);
-		}
-		@Override
 		public void exitRule(ParseTreeListener listener) {
 			if ( listener instanceof SigmaListener ) ((SigmaListener)listener).exitFuncDef(this);
 		}

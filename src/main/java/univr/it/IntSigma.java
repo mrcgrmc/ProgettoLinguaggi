@@ -9,10 +9,10 @@ import univr.it.value.*;
 import java.util.*;
 
 public class IntSigma extends SigmaBaseVisitor<Value>{
-    private ExpValue lastRet = null;
-    private Conf scope;
+    private ExpValue lastRet = null;                                     //LastReturn, return dell'ultima funzione chiamata
+    private Conf scope;                                                  //Memoria(Scope Statico)
     private final Scanner in = new Scanner(System.in);
-    private final Map<String, FuncDef> functions = new HashMap<>();
+    private final Map<String, FuncDef> functions = new HashMap<>();     //Memoria Funzioni
 
     public IntSigma(Conf conf){
         this.scope = conf;
@@ -32,13 +32,13 @@ public class IntSigma extends SigmaBaseVisitor<Value>{
     //BLOCKS
     @Override
     public StmtValue visitBlock(SigmaParser.BlockContext ctx) {
-        Conf old;
+        Conf old;                                                   //Salvataggio scope padre
         old = this.scope;
-        this.scope = new Conf(old);
+        this.scope = new Conf(old);                                 //Nuovo scope, con elementi del padre
         for(SigmaParser.StatementContext stmt : ctx.statement()){
             visit(stmt);
         }
-        this.scope = old;
+        this.scope = old;                                           //Rollback dello scope
         return StmtValue.INSTANCE;
     }
 
@@ -49,7 +49,7 @@ public class IntSigma extends SigmaBaseVisitor<Value>{
         String name = ctx.ID(0).getText();
         List<String> params = new ArrayList<>();
 
-        for(int i=1;i<ctx.ID().size();i++){
+        for(int i=1;i<ctx.ID().size();i++){         //Aggiunta parametri ad una lista
             params.add(ctx.ID(i).getText());
         }
         functions.put(name, new FuncDef(params,ctx.block()));
@@ -60,11 +60,11 @@ public class IntSigma extends SigmaBaseVisitor<Value>{
         FuncDef def = functions.get(ctx.ID().getText());
         Conf old = this.scope;
         this.scope = new Conf();
-        if (def == null) {
+        if (def == null) {                                          //Controllo che la funzione richiamata esista in memoria
             System.err.println("Error: not defined function!");
             System.exit(1);
         }
-        List<Value> argValues = new ArrayList<>();
+        List<Value> argValues = new ArrayList<>();                  //Estraggo i parametri passati in input
         for (ParseTree child : ctx.children) {
             if (child instanceof SigmaParser.FExpContext) {
                 argValues.add(visit(child));
@@ -72,20 +72,20 @@ public class IntSigma extends SigmaBaseVisitor<Value>{
                 argValues.add(visit(child));
             }
         }
-        if (argValues.size() != def.getParamNames().size()) {
+        if (argValues.size() != def.getParamNames().size()) {       //Controllo se la quantita' di argomenti coincide
             System.err.print("Error: wrong argument size");
             System.exit(1);
         }
 
-        for (int i = 0; i < def.getParamNames().size(); i++) {
+        for (int i = 0; i < def.getParamNames().size(); i++) {      //Inserirsco tutti gli argomenti nello scope statico
             String pname = def.getParamNames().get(i);
             ExpValue v = (ExpValue) argValues.get(i);
             scope.put(pname, v);
         }
-        visit(def.getBody());
-        ExpValue ret = this.lastRet;
+        visit(def.getBody());                                       //visito il BlockContext della funzione
+        ExpValue ret = this.lastRet;                                //Estreggo il return
         this.lastRet = null;
-        this.scope = old;
+        this.scope = old;                                           //Riprestino lo scope
         return ret;
     }
 
@@ -93,7 +93,7 @@ public class IntSigma extends SigmaBaseVisitor<Value>{
     //STATEMENTS
     @Override
     public StmtValue visitBfStmt(SigmaParser.BfStmtContext ctx) {
-        IntBrainFuck.run(ctx.bfComm());
+        IntBrainFuck.run(ctx.bfComm());                            //Chiamo l'interprete BrainFuck
         return StmtValue.INSTANCE;
     }
     @Override
@@ -107,38 +107,40 @@ public class IntSigma extends SigmaBaseVisitor<Value>{
     public StmtValue visitReDecStmt(SigmaParser.ReDecStmtContext ctx) {
 
         String id   = ctx.ID().getText();
-        Value  old  = scope.get(id);
-        if (old == null)
-            throw new RuntimeException("Variable '" + id + "' used but never declared");
+        Value  old  = scope.get(id);                                      //Variabile che verra' restituita
+        if (old == null){                                                 //Controllo che la variabile richiesta esista
+            System.err.print("Variable '" + id + "' used but never declared");
+            System.exit(1);
+        }
 
-        boolean hasIndex = ctx.LSPAR() != null;
+        boolean hasIndex = ctx.LSPAR() != null;                           //Controlo se ha un indice di un array
 
-        if (hasIndex) {
-            if (!(old instanceof ArrayValue arr))
-                throw new RuntimeException("Error: Variable '" + id + "' is not an array");
+        if (hasIndex) {                                                   //Controllo che sia veramente un array
+            if (!(old instanceof ArrayValue)){
+                System.err.print("Error: Variable '" + id + "' is not an array");
+                System.exit(1);
+            }
 
-            int idx = ((FloatValue) visit(ctx.fExp(0))).toInt().getValue();
+            int idx = ((FloatValue) visit(ctx.fExp(0))).toInt().getValue();   //Indice
 
-            Value newVal;
+            Value newVal;                               //Controllo se un array o un float
             if (ctx.sExp() != null) {
                 newVal = visit(ctx.sExp());
             } else {
                 newVal = visit(ctx.fExp(1));
             }
-            arr.set(idx, (ExpValue) newVal);
+            ((ArrayValue)old).set(idx, (ExpValue) newVal);           //Sostituisco nell'array
             return StmtValue.INSTANCE;
         }
 
-        if (ctx.sExp() != null) {
+        if (ctx.sExp() != null) {                                    //Controlli sul tipo di variabile passata
             StringValue sv = (StringValue) visit(ctx.sExp());
             if (old instanceof FloatValue) {
                 try {
                     float num = Float.parseFloat(sv.getValue());
                     scope.put(id, new FloatValue(num));
                 } catch (NumberFormatException ex) {
-                    throw new RuntimeException(
-                            "Error: Cannot convert \"" + sv.getValue() +
-                                    "\" to FLOAT for variable '" + id + "'");
+                    throw new RuntimeException("Error: Cannot convert '" + sv.getValue() + "' to FLOAT for variable '" + id + "'");
                 }
             } else {
                 scope.put(id, sv);
@@ -150,10 +152,9 @@ public class IntSigma extends SigmaBaseVisitor<Value>{
         scope.put(id, fv);
         return StmtValue.INSTANCE;
     }
-
     @Override
-    public StmtValue visitReturnSStmt(SigmaParser.ReturnSStmtContext ctx) {
-        ParserRuleContext parent = ctx.getParent().getParent();
+    public StmtValue visitReturnSStmt(SigmaParser.ReturnSStmtContext ctx) {     //Return di una stringa
+        ParserRuleContext parent = ctx.getParent().getParent();                 //Controlla in che contesto si trova
         if(parent instanceof SigmaParser.FuncDefContext){
             this.lastRet = (StringValue)visit(ctx.sExp());
         }
@@ -161,12 +162,14 @@ public class IntSigma extends SigmaBaseVisitor<Value>{
             System.out.println(((StringValue)visit(ctx.sExp())).getValue());
             System.exit(0);
         }
-        else throw new IllegalStateException("Error: Illegal return statement!");
+        else{ System.err.print("Error: Illegal return statement!");
+              System.exit(1);
+        }
         return StmtValue.INSTANCE;
     }
     @Override
-    public StmtValue visitReturnFStmt(SigmaParser.ReturnFStmtContext ctx) {
-        ParserRuleContext parent = ctx.getParent().getParent();
+    public StmtValue visitReturnFStmt(SigmaParser.ReturnFStmtContext ctx) {     //Return di un Float
+        ParserRuleContext parent = ctx.getParent().getParent();                 //Stesso procedimento dello string
         if(parent instanceof SigmaParser.FuncDefContext){
             this.lastRet = (FloatValue) visit(ctx.fExp());
         }
@@ -174,34 +177,37 @@ public class IntSigma extends SigmaBaseVisitor<Value>{
             System.out.println(((FloatValue)visit(ctx.fExp())).getValue());
             System.exit(0);
         }
+        else{ System.err.print("Error: Illegal return statement!");
+            System.exit(1);
+        }
         return StmtValue.INSTANCE;
     }
     @Override
-    public StmtValue visitDecStmt(SigmaParser.DecStmtContext ctx) {
+    public StmtValue visitDecStmt(SigmaParser.DecStmtContext ctx) {         //Dichiarazioni variabili
         visit(ctx.declaration());
         return StmtValue.INSTANCE;
     }
     @Override
-    public StmtValue visitPrintStmt(SigmaParser.PrintStmtContext ctx) {
+    public StmtValue visitPrintStmt(SigmaParser.PrintStmtContext ctx) {    //Print
         System.out.println(((StringValue)visit(ctx.sExp())).getValue());
         return StmtValue.INSTANCE;
     }
     @Override
-    public StmtValue visitFunStmt(SigmaParser.FunStmtContext ctx) {
+    public StmtValue visitFunStmt(SigmaParser.FunStmtContext ctx) {         //Chiamata di una funzione
         visit(ctx.funCall());
         return StmtValue.INSTANCE;
     }
     @Override
-    public StmtValue visitForStmt(SigmaParser.ForStmtContext ctx) {
+    public StmtValue visitForStmt(SigmaParser.ForStmtContext ctx) {        //For Iteration
         int start,end;
-        if (ctx.fExp().size() > 1){
-            start = ((FloatValue) visit(ctx.fExp(0))).toInt().getValue();
+        if (ctx.fExp().size() > 1){                                              //Se sono presenti due valori numerici
+            start = ((FloatValue) visit(ctx.fExp(0))).toInt().getValue();     //allora mettili come inizio e fine del loop
             end = ((FloatValue) visit(ctx.fExp(1))).toInt().getValue();
-        }else{
-            start = 0;
+        }else{                                                                  //Altrimenti se c'e' un solo valore metti
+            start = 0;                                                          //l'inizio a zero e l'altro valore come fine
             end = ((FloatValue) visit(ctx.fExp(0))).toInt().getValue();
         }
-        for(int i=start;i<end;i++){
+        for(int i=start;i<end;i++){                                             //for effittivo
             scope.put(ctx.ID().getText(),new FloatValue((float)i));
             visit(ctx.block());
             i = ((FloatValue)scope.get(ctx.ID().getText())).toInt().getValue();
@@ -209,7 +215,7 @@ public class IntSigma extends SigmaBaseVisitor<Value>{
         return StmtValue.INSTANCE;
     }
     @Override
-    public StmtValue visitWhileStmt(SigmaParser.WhileStmtContext ctx) {
+    public StmtValue visitWhileStmt(SigmaParser.WhileStmtContext ctx) {     //While
         boolean cond = ((BoolValue)visit(ctx.bExp())).getValue();
         while(cond){
             visit(ctx.block());
@@ -218,7 +224,7 @@ public class IntSigma extends SigmaBaseVisitor<Value>{
         return StmtValue.INSTANCE;
     }
     @Override
-    public StmtValue visitIfElseStmt(SigmaParser.IfElseStmtContext ctx) {
+    public StmtValue visitIfElseStmt(SigmaParser.IfElseStmtContext ctx) {   //IfElse
         boolean cond = ((BoolValue)visit(ctx.bExp())).getValue();
         if(cond) visit(ctx.block(0));
         else if (ctx.ELSE() != null) visit(ctx.block(1));
@@ -249,7 +255,7 @@ public class IntSigma extends SigmaBaseVisitor<Value>{
     public ArrayValue visitArrayString(SigmaParser.ArrayStringContext ctx) {
         ArrayValue list = new ArrayValue(new ArrayList<>());
         int i = 0;
-        for (SigmaParser.SExpContext se : ctx.sExp()){
+        for (SigmaParser.SExpContext se : ctx.sExp()){                  //Crea la lista di Stringhe
             list.set(i,(StringValue) visit(se));
             i++;
         }
@@ -259,7 +265,7 @@ public class IntSigma extends SigmaBaseVisitor<Value>{
     public ArrayValue visitArrayFloat(SigmaParser.ArrayFloatContext ctx) {
         ArrayValue list = new ArrayValue(new ArrayList<>());
         int i = 0;
-        for (SigmaParser.FExpContext fe : ctx.fExp()){
+        for (SigmaParser.FExpContext fe : ctx.fExp()){              //Crea la lista di Float
             list.set(i,(FloatValue) visit(fe));
             i++;
         }
@@ -268,7 +274,7 @@ public class IntSigma extends SigmaBaseVisitor<Value>{
     @Override
     public ArrayValue visitArrayVar(SigmaParser.ArrayVarContext ctx) {
         if(scope.get(ctx.ID().getText()) == null){
-            System.err.println("Error: Variable " + ctx.ID().getText() +  "used never assigned");
+            System.err.print("Error: Variable " + ctx.ID().getText() +  "used but never declared");
             System.exit(1);
         }
         return (ArrayValue) scope.get(ctx.ID().getText());
@@ -345,7 +351,7 @@ public class IntSigma extends SigmaBaseVisitor<Value>{
             String val = in.nextLine();
             return new StringValue(val);
         }catch (Exception e){
-            System.err.println("Type missmatch exception!");
+            System.err.println("Error: Type missmatch exception!");
             System.exit(1);
         }
         return null;
@@ -357,7 +363,7 @@ public class IntSigma extends SigmaBaseVisitor<Value>{
     }
     public StringValue visitSVar(SigmaParser.SVarContext ctx) {
         if(scope.get(ctx.ID().getText()) == null){
-            System.err.println("Variable " + ctx.ID().getText() +  "used but never assigned");
+            System.err.println("Error: Variable " + ctx.ID().getText() +  "used but never declared");
             System.exit(1);
         }
         if (ctx.LSPAR() != null)
@@ -417,7 +423,7 @@ public class IntSigma extends SigmaBaseVisitor<Value>{
             in.nextLine();
             return new FloatValue(val);
         } catch (Exception e) {
-            System.err.println("Type mismatch exception!");
+            System.err.println("Error: Type mismatch exception!");
             System.exit(1);
         }
         return null;
@@ -433,27 +439,26 @@ public class IntSigma extends SigmaBaseVisitor<Value>{
     @Override
     public FloatValue visitFVar(SigmaParser.FVarContext ctx) {
         String name = ctx.ID().getText();
-        Value raw = scope.get(name);
+        Value raw = scope.get(name);                            //Estrae il valore senza tipo
 
         if (raw == null) {
-            throw new RuntimeException("Error: Undefined variable " + name);
+            System.err.print("Error: Undefined variable " + name);
+            System.exit(1);
         }
-        if (ctx.fExp() != null) {
+        if (ctx.fExp() != null) {                              //Controlla se e' un array
             int idx = ((FloatValue)visit(ctx.fExp())).toInt().getValue();
             if (!(raw instanceof ArrayValue)) {
-                throw new RuntimeException("Variable " + name + " is not an array");
+                System.err.print("Errore: Variable " + name + " is not an array");
+                System.exit(1);
             }
             raw = ((ArrayValue) raw).get(idx);
         }
         if (raw instanceof FloatValue) {
             return (FloatValue) raw;
         }
-        if (raw instanceof IntValue) {
-            float v = ((IntValue) raw).getValue();
-            return new FloatValue(v);
-        }
-        throw new RuntimeException(
-                "Error: Variable " + name + " is not numeric, but " + raw.getClass().getSimpleName());
+        System.err.print("Error: Variable " + name + " is not numeric");
+        System.exit(1);
+        return null;
     }
 }
 

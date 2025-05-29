@@ -1,6 +1,5 @@
 package univr.it;
 
-import univr.it.value.ExpValue;
 import univr.it.value.Value;
 
 import java.util.HashMap;
@@ -23,9 +22,5 @@ public class Conf {
 
     public void put(String id, Value val){
         map.put(id,val);
-    }
-
-    public void delete(String id){
-        map.remove(id);
     }
 }
